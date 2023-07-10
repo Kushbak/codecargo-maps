@@ -1,27 +1,26 @@
 import { useState, useEffect } from "react";
-import TrimbleMaps from "@trimblemaps/trimblemaps-js";
+import TrimbleMaps, { GeolocateControl } from "@trimblemaps/trimblemaps-js";
 import { useLocation } from "react-router-dom";
 import { Coords } from "../../types";
 
 const OrderRouteMainMap = () => {
   const [isError, setIsError] = useState(false);
+  const [map, setMap] = useState<TrimbleMaps.Map>();
+  const [route, setRoute] = useState<TrimbleMaps.Route>();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
 
-  let map: TrimbleMaps.Map;
-  let route: TrimbleMaps.Route;
   const startLng = Number(params.get("startLng") || "!");
   const startLat = Number(params.get("startLat") || "!");
   const endLng = Number(params.get("endLng") || "!");
   const endLat = Number(params.get("endLat") || "!");
 
   const initMap = (): [TrimbleMaps.Map, TrimbleMaps.Route] | undefined => {
-
     if (!startLat || !startLng || !endLat || !endLng) {
       setIsError(true);
       return;
     }
-    const stops: {start: Coords, end: Coords} = {
+    const stops: { start: Coords; end: Coords } = {
       start: [startLng, startLat],
       end: [endLng, endLat],
     };
@@ -34,8 +33,9 @@ const OrderRouteMainMap = () => {
       container: "map",
       style: TrimbleMaps.Common.Style.TRANSPORTATION,
       center: new TrimbleMaps.LngLat(...stops.start),
-      zoom: 20,
+      zoom: 1,
     });
+
     const myRoute = new TrimbleMaps.Route({
       routeId: "myRoute",
       showStops: true,
@@ -43,36 +43,45 @@ const OrderRouteMainMap = () => {
         new TrimbleMaps.LngLat(...stops.start),
         new TrimbleMaps.LngLat(...stops.end),
       ],
-      showArrows: true,
     });
+
     map.on("load", function () {
       myRoute.addTo(map);
     });
-    return [map, myRoute];
+
+    setMap(map);
+    setRoute(myRoute);
   };
 
   useEffect(() => {
-    const res = initMap();
-    if (res) {
-      map = res[0];
-      route = res[1];
-    }
+    initMap();
   }, []);
 
   useEffect(() => {
     const handleMessage = (message: any) => {
-      if(route && message.data) {
-        const data = JSON.parse(message.data)
-        if(data.longitude && data.latitude) {
-          route.update({
-            stops: [
-              [data.longitude, data.latitude],
-              [endLng, endLat]
-            ]
-          })
+      try {
+        if (route && message?.data) {
+          const data = JSON.parse(message?.data);
+          if (data?.longitude && data?.latitude) {
+            route?.getRouteWithNewStop(
+              new TrimbleMaps.LngLat(+data.longitude, +data.latitude),
+              3
+            );
+
+            // route.update({
+            //   stops: [
+            //     [+data.longitude, +data.latitude],
+            //     [endLng, endLat],
+            //   ],
+            // });
+            // @ts-ignore
+            window.ReactNativeWebView?.postMessage(JSON.stringify(data));
+          }
         }
+        // alert(message.data);
+      } catch (e) {
+        alert(e);
       }
-      // alert(message.data);
     };
     window.addEventListener("message", handleMessage);
     return () => {
