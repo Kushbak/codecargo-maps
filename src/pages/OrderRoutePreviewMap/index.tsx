@@ -35,7 +35,7 @@ const OrderRoutePreviewMap = () => {
       zoom: 8,
     });
     const myRoute = new TrimbleMaps.Route({
-      routeId: "myRoute1s",
+      routeId: "myRoute",
       showStops: true,
       stops: stops.map(item => new TrimbleMaps.LngLat(item[0], item[1])),
     });
